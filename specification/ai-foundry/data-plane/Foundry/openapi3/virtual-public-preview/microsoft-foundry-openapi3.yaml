@@ -16427,15 +16427,10 @@ components:
       type: object
       required:
         - type
-        - max_samples
       properties:
         type:
           $ref: '#/components/schemas/DataGenerationJobType'
           description: The data generation job type.
-        max_samples:
-          type: integer
-          format: int32
-          description: Maximum number of samples to generate.
         train_split:
           type: number
           format: float
@@ -16486,6 +16481,9 @@ components:
           unevaluatedProperties:
             type: string
           description: Tags to assign to the output. Applies only to dataset outputs (evaluation scenario); ignored for Azure OpenAI file outputs.
+        write_mode:
+          $ref: '#/components/schemas/DataGenerationJobOutputWriteMode'
+          description: Controls how dataset outputs are written. If omitted, the service preserves existing behavior and creates the next dataset version using only newly generated rows.
       description: Output options for data generation job.
       x-ms-foundry-meta:
         conditional_previews:
@@ -16498,6 +16496,17 @@ components:
             - file
             - dataset
       description: The supported output file types for a data generation job.
+      x-ms-foundry-meta:
+        conditional_previews:
+          - DataGenerationJobs=V1Preview
+    DataGenerationJobOutputWriteMode:
+      anyOf:
+        - type: string
+        - type: string
+          enum:
+            - overwrite
+            - append
+      description: The supported write modes for data generation job outputs.
       x-ms-foundry-meta:
         conditional_previews:
           - DataGenerationJobs=V1Preview
@@ -16590,6 +16599,34 @@ components:
           type: string
           description: Base model name used to generate data.
       description: LLM model options for data generation jobs.
+      x-ms-foundry-meta:
+        conditional_previews:
+          - DataGenerationJobs=V1Preview
+    DataGenerationSamplingOptions:
+      type: object
+      required:
+        - type
+      properties:
+        type:
+          $ref: '#/components/schemas/DataGenerationSamplingType'
+          description: The sampling strategy.
+      discriminator:
+        propertyName: type
+        mapping:
+          random: '#/components/schemas/RandomDataGenerationSamplingOptions'
+          intelligent: '#/components/schemas/IntelligentDataGenerationSamplingOptions'
+      description: Base sampling options for data generation jobs.
+      x-ms-foundry-meta:
+        conditional_previews:
+          - DataGenerationJobs=V1Preview
+    DataGenerationSamplingType:
+      anyOf:
+        - type: string
+        - type: string
+          enum:
+            - random
+            - intelligent
+      description: The supported sampling strategies for data generation jobs.
       x-ms-foundry-meta:
         conditional_previews:
           - DataGenerationJobs=V1Preview
@@ -19946,6 +19983,27 @@ components:
       allOf:
         - $ref: '#/components/schemas/InputData'
       description: Dataset as source for evaluation.
+    IntelligentDataGenerationSamplingOptions:
+      type: object
+      required:
+        - type
+        - max_samples
+      properties:
+        type:
+          type: string
+          enum:
+            - intelligent
+          description: Use intelligent sampling to select eligible input records.
+        max_samples:
+          type: integer
+          format: int32
+          description: Maximum number of samples to select.
+      allOf:
+        - $ref: '#/components/schemas/DataGenerationSamplingOptions'
+      description: Intelligent sampling options.
+      x-ms-foundry-meta:
+        conditional_previews:
+          - DataGenerationJobs=V1Preview
     Insight:
       type: object
       required:
@@ -38845,6 +38903,27 @@ components:
       x-ms-foundry-meta:
         required_previews:
           - Schedules=V1Preview
+    RandomDataGenerationSamplingOptions:
+      type: object
+      required:
+        - type
+        - max_samples
+      properties:
+        type:
+          type: string
+          enum:
+            - random
+          description: Randomly sample eligible input records.
+        max_samples:
+          type: integer
+          format: int32
+          description: Maximum number of samples to select.
+      allOf:
+        - $ref: '#/components/schemas/DataGenerationSamplingOptions'
+      description: Random sampling options.
+      x-ms-foundry-meta:
+        conditional_previews:
+          - DataGenerationJobs=V1Preview
     RedTeam:
       type: object
       required:
@@ -39761,12 +39840,17 @@ components:
       type: object
       required:
         - type
+        - max_samples
       properties:
         type:
           type: string
           enum:
             - simple_qna
           description: The data generation job type, which is SimpleQnA for this model.
+        max_samples:
+          type: integer
+          format: int32
+          description: Maximum number of samples to generate.
         question_types:
           type: array
           items:
@@ -40361,12 +40445,17 @@ components:
       type: object
       required:
         - type
+        - max_samples
       properties:
         type:
           type: string
           enum:
             - tool_use
           description: The data generation job type, which is ToolUse for this model.
+        max_samples:
+          type: integer
+          format: int32
+          description: Maximum number of samples to generate.
       allOf:
         - $ref: '#/components/schemas/DataGenerationJobOptions'
       description: The options for a data generation job with ToolUse type. Used only for fine-tuning scenarios.
@@ -40607,6 +40696,9 @@ components:
           enum:
             - traces
           description: The data generation job type, which is Traces for this model.
+        sampling:
+          $ref: '#/components/schemas/DataGenerationSamplingOptions'
+          description: Sampling configuration for selecting trace records. If omitted, all eligible trace records are used.
       allOf:
         - $ref: '#/components/schemas/DataGenerationJobOptions'
       description: The options for a data generation job with Traces type.
@@ -40642,6 +40734,14 @@ components:
         end_time:
           $ref: '#/components/schemas/FoundryTimestamp'
           description: End of the time window (Unix timestamp in seconds). Defaults to current time.
+        trace_ids:
+          type: array
+          items:
+            type: string
+          description: Optional explicit list of trace IDs to include. Mutually exclusive with `kql_where_clause`.
+        kql_where_clause:
+          type: string
+          description: Optional KQL where clause used to filter traces. Mutually exclusive with `trace_ids`.
       allOf:
         - $ref: '#/components/schemas/DataGenerationJobSource'
       description: Traces source for data generation jobs — conversation traces from Application Insights.
